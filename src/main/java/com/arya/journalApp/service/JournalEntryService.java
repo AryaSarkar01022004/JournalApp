@@ -1,11 +1,13 @@
 package com.arya.journalApp.service;
 
 import com.arya.journalApp.entity.JournalEntry;
+import com.arya.journalApp.entity.User;
 import com.arya.journalApp.repository.JournalEntryRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -17,16 +19,29 @@ public class JournalEntryService   {
 
     @Autowired
     private  JournalEntryRepository journalEntryRepository;
+    @Autowired
+    private UserService userService;
 
-
-
-    public void saveEntry(JournalEntry journalEntry){
+    @Transactional
+    public void saveEntry(JournalEntry journalEntry, String username){
         try {
+            User user = userService.findByUsername(username);
             journalEntry.setDate(LocalDateTime.now());
-            journalEntryRepository.save(journalEntry);
+            JournalEntry saved = journalEntryRepository.save(journalEntry);
+            user.getJournalEntries().add(saved);
+            userService.saveEntry(user);
         }catch (Exception e){
-        log.error("Exception ",e);
+            System.out.println(e.getMessage());
+            throw new RuntimeException("An error occurred while saving journal entry",e);
         }
+
+
+
+    }
+    public void saveEntry(JournalEntry journalEntry){
+
+        journalEntryRepository.save(journalEntry);
+
 
     }
 
@@ -38,7 +53,10 @@ public class JournalEntryService   {
         return journalEntryRepository.findById(id);
     }
 
-    public void deleteById(ObjectId id){
+    public void deleteById(ObjectId id, String username){
+        User user = userService.findByUsername(username);
+        user.getJournalEntries().removeIf(x -> x.getId().equals(id));
+        userService.saveEntry(user);
         journalEntryRepository.deleteById(id);
     }
 
